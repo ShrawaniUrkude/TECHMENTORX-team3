@@ -27,10 +27,13 @@ export const AuthProvider = ({ children }) => {
       // Demo mode for hackathon - works without backend
       console.log('Using demo mode - Backend unavailable');
       
-      // Determine role from email
+      // Determine role from email (check more specific first)
       let role = 'donor';
-      if (email.includes('volunteer')) role = 'volunteer';
-      if (email.includes('admin') || email.includes('organization')) role = 'admin';
+      if (email.includes('volunteer')) {
+        role = 'volunteer';
+      } else if (email.includes('admin') || email.includes('organization')) {
+        role = 'admin';
+      }
       
       const demoUser = {
         _id: 'demo-' + Date.now(),

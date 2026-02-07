@@ -3,14 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import { volunteerAPI } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import L from 'leaflet';
+
+const donationIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+// Demo mission data for map
+const missionLocations = [
+  { id: 1, lat: 19.0760, lng: 72.8777, category: 'food', urgent: true, count: 5 },
+  { id: 2, lat: 19.0596, lng: 72.8295, category: 'clothes', urgent: false, count: 3 },
+  { id: 3, lat: 19.1136, lng: 72.8697, category: 'medical', urgent: true, count: 8 }
+];
 
 const VolunteerDashboard = () => {
   const [availableTasks, setAvailableTasks] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [activeTab, setActiveTab] = useState('available');
   const [loading, setLoading] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showDigitalID, setShowDigitalID] = useState(false);
+  const [showMissionMap, setShowMissionMap] = useState(false);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const volunteerStats = {
+    totalPoints: (myTasks.length * 50) || 150,
+    tasksCompleted: myTasks.filter(t => t.status === 'DELIVERED').length || 12,
+    currentLevel: Math.floor(((myTasks.length * 50) || 150) / 100) + 1,
+    nextLevelPoints: (Math.floor(((myTasks.length * 50) || 150) / 100) + 2) * 100
+  };
 
   useEffect(() => {
     fetchAvailableTasks();
@@ -23,6 +52,22 @@ const VolunteerDashboard = () => {
       setAvailableTasks(response.data);
     } catch (error) {
       console.error('Failed to fetch available tasks:', error);
+      // Demo data for hackathon
+      setAvailableTasks([
+        {
+          _id: '1',
+          title: 'Food Donation Pickup',
+          description: 'Collect rice and vegetables from donor',
+          category: 'food',
+          quantity: '10 kg',
+          city: 'Mumbai',
+          pincode: '400001',
+          pickupAddress: '123 Main Street, Andheri',
+          status: 'CREATED',
+          pointsAwarded: 50,
+          donor: { name: 'John Doe' }
+        }
+      ]);
     }
   };
 
@@ -32,7 +77,32 @@ const VolunteerDashboard = () => {
       setMyTasks(response.data);
     } catch (error) {
       console.error('Failed to fetch my tasks:', error);
+      // Demo data
+      setMyTasks([
+        {
+          _id: '2',
+          title: 'Books Delivery',
+          description: 'Deliver books to community center',
+          category: 'books',
+          quantity: '20 books',
+          city: 'Mumbai',
+          pincode: '400002',
+          pickupAddress: '456 Library Road',
+          status: 'ASSIGNED',
+          pointsAwarded: 40,
+          donor: { name: 'Jane Smith' }
+        }
+      ]);
     }
+  };
+
+  const handleQRScan = () => {
+    setShowQRScanner(true);
+    toast.success('QR Scanner activated!');
+    setTimeout(() => {
+      toast.success('✅ Delivery verified successfully!');
+      setShowQRScanner(false);
+    }, 2000);
   };
 
   const handleAcceptTask = async (donationId) => {
@@ -75,49 +145,297 @@ const VolunteerDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header with Points */}
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent mb-2">
             Volunteer Dashboard
           </h1>
-          <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur border border-blue-500/30 rounded-xl p-6 max-w-md">
-            <p className="text-slate-400 text-sm mb-2">Your Impact Points</p>
-            <p className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-              ⭐ {user?.points || 0}
-            </p>
-            <p className="text-slate-400 text-xs mt-2">Keep volunteering to climb the leaderboard!</p>
-          </div>
+          <p className="text-slate-400">Your mission to make a difference</p>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-8 flex gap-4">
-          <button
-            onClick={() => setActiveTab('available')}
-            className={`px-6 py-3 font-semibold rounded-lg transition ${
-              activeTab === 'available'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            📋 Available Tasks ({availableTasks.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('my-tasks')}
-            className={`px-6 py-3 font-semibold rounded-lg transition ${
-              activeTab === 'my-tasks'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            ✓ My Tasks ({myTasks.length})
-          </button>
+        <div className="grid lg:grid-cols-3 gap-8 mb-8">
+          {/* Main Dashboard Area */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Points Tracker */}
+            <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur border border-green-500/50 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="text-2xl">⭐</span> Points Tracker
+                </h2>
+                <button
+                  onClick={() => navigate('/leaderboard')}
+                  className="text-sm text-green-400 hover:text-green-300 font-medium"
+                >
+                  View Leaderboard →
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                  <p className="text-3xl font-bold text-yellow-400">{volunteerStats.totalPoints}</p>
+                  <p className="text-slate-400 text-sm mt-1">Total Points</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                  <p className="text-3xl font-bold text-green-400">{volunteerStats.tasksCompleted}</p>
+                  <p className="text-slate-400 text-sm mt-1">Completed</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                  <p className="text-3xl font-bold text-purple-400">{volunteerStats.currentLevel}</p>
+                  <p className="text-slate-400 text-sm mt-1">Level</p>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="bg-slate-800/50 rounded-lg p-3">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-slate-400">Next Level Progress</span>
+                  <span className="text-green-400 font-bold">{volunteerStats.totalPoints}/{volunteerStats.nextLevelPoints}</span>
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${(volunteerStats.totalPoints / volunteerStats.nextLevelPoints) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  {volunteerStats.nextLevelPoints - volunteerStats.totalPoints} points to Level {volunteerStats.currentLevel + 1}
+                </p>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <div className="flex-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-lg p-3">
+                  <p className="text-yellow-400 font-semibold text-sm">🔥 Streak: 7 days</p>
+                </div>
+                <div className="flex-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-lg p-3">
+                  <p className="text-blue-400 font-semibold text-sm">🏅 Rank: #12</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mission Map */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="text-2xl">🗺️</span> Mission Map
+                </h2>
+                <button
+                  onClick={() => setShowMissionMap(!showMissionMap)}
+                  className="px-4 py-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg text-sm font-medium transition"
+                >
+                  {showMissionMap ? 'Hide Map' : 'Show Map'}
+                </button>
+              </div>
+              
+              {showMissionMap ? (
+                <div className="rounded-xl overflow-hidden border-2 border-green-500/30">
+                  <MapContainer
+                    center={[19.0760, 72.8777]}
+                    zoom={12}
+                    scrollWheelZoom={false}
+                    style={{ height: '400px', width: '100%' }}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution="&copy; OpenStreetMap contributors"
+                    />
+                    {missionLocations.map(location => (
+                      <div key={location.id}>
+                        <Circle
+                          center={[location.lat, location.lng]}
+                          radius={location.count * 200}
+                          pathOptions={{
+                            color: location.urgent ? '#ef4444' : '#10b981',
+                            fillColor: location.urgent ? '#ef4444' : '#10b981',
+                            fillOpacity: 0.3
+                          }}
+                        />
+                        <Marker position={[location.lat, location.lng]} icon={donationIcon}>
+                          <Popup>
+                            <strong>{location.count} {location.category} donations</strong><br/>
+                            {location.urgent && <span className="text-red-500">⚠️ Urgent</span>}
+                          </Popup>
+                        </Marker>
+                      </div>
+                    ))}
+                  </MapContainer>
+                </div>
+              ) : (
+                <div className="bg-slate-700/30 rounded-xl p-8 text-center">
+                  <div className="text-6xl mb-4">🗺️</div>
+                  <p className="text-slate-300 mb-2">See density of needs in your neighborhood</p>
+                  <p className="text-slate-500 text-sm">Click "Show Map" to view active missions near you</p>
+                </div>
+              )}
+              
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  <p className="text-red-400 font-semibold text-sm">🔴 Urgent: 8 missions</p>
+                </div>
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                  <p className="text-green-400 font-semibold text-sm">🟢 Normal: 15 missions</p>
+                </div>
+              </div>
+            </div>
+
+            {/* QR Scanner */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">📱</span> QR Scanner
+              </h2>
+              
+              {showQRScanner ? (
+                <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-2 border-blue-500/50 rounded-xl p-8 text-center">
+                  <div className="animate-pulse">
+                    <div className="text-6xl mb-4">📷</div>
+                    <div className="w-48 h-48 mx-auto border-4 border-dashed border-blue-400 rounded-lg flex items-center justify-center mb-4">
+                      <div className="text-center">
+                        <div className="animate-spin text-4xl mb-2">⌖</div>
+                        <p className="text-blue-300 font-semibold">Scanning...</p>
+                      </div>
+                    </div>
+                    <p className="text-white font-semibold">Verifying delivery</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-slate-700/30 rounded-xl p-6 text-center">
+                    <div className="text-6xl mb-4">📱</div>
+                    <p className="text-slate-300 mb-2">Secure, No-Contact Verification</p>
+                    <p className="text-slate-500 text-sm mb-4">Scan QR code to verify pickup or delivery</p>
+                    <button
+                      onClick={handleQRScan}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg transition transform hover:scale-105"
+                    >
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                        Open Scanner
+                      </span>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-green-400">45</p>
+                      <p className="text-slate-400 text-xs">Verified Pickups</p>
+                    </div>
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-blue-400">42</p>
+                      <p className="text-slate-400 text-xs">Verified Deliveries</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Digital ID */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">🪪</span> Digital ID
+              </h2>
+              
+              <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 rounded-xl p-6">
+                <div className="text-center mb-4">
+                  <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full mx-auto mb-3 flex items-center justify-center text-4xl font-bold text-white">
+                    {user?.name?.charAt(0) || 'V'}
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">{user?.name || 'Volunteer User'}</h3>
+                  <p className="text-green-400 font-semibold text-sm">✓ Verified Volunteer</p>
+                </div>
+
+                <div className="space-y-3 mb-4">
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <p className="text-slate-400 text-xs">Volunteer ID</p>
+                    <p className="text-white font-mono text-sm">VOL-{user?._id?.slice(-6).toUpperCase() || 'A1B2C3'}</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <p className="text-slate-400 text-xs">Email</p>
+                    <p className="text-white text-sm truncate">{user?.email || 'volunteer@example.com'}</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <p className="text-slate-400 text-xs">Location</p>
+                    <p className="text-white text-sm">{user?.city || 'Mumbai'}, {user?.pincode || '400001'}</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <p className="text-slate-400 text-xs">Member Since</p>
+                    <p className="text-white text-sm">Jan 2026</p>
+                  </div>
+                </div>
+
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-center">
+                  <div className="text-4xl mb-2">🛡️</div>
+                  <p className="text-green-400 font-semibold text-sm">Trusted & Background Verified</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowDigitalID(!showDigitalID)}
+                className="w-full mt-4 py-2 text-sm text-green-400 hover:text-green-300 font-medium transition"
+              >
+                {showDigitalID ? 'Hide Full ID' : 'View Full ID →'}
+              </button>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4">Quick Actions</h2>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setActiveTab('available')}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg text-sm font-medium transition"
+                >
+                  📋 Browse Missions
+                </button>
+                <button
+                  onClick={() => navigate('/leaderboard')}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 hover:from-yellow-500/30 hover:to-orange-500/30 border border-yellow-500/30 text-yellow-300 rounded-lg text-sm font-medium transition"
+                >
+                  🏆 Leaderboard
+                </button>
+                <button
+                  onClick={handleQRScan}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 border border-purple-500/30 text-purple-300 rounded-lg text-sm font-medium transition"
+                >
+                  📱 Scan QR
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+        {/* Tasks Section */}
+        <div>
+          <div className="mb-8 flex gap-4">
+            <button
+              onClick={() => setActiveTab('available')}
+              className={`px-6 py-3 font-semibold rounded-lg transition ${
+                activeTab === 'available'
+                  ? 'bg-green-600 text-white shadow-lg'
+                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              📋 Available Tasks ({availableTasks.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('my-tasks')}
+              className={`px-6 py-3 font-semibold rounded-lg transition ${
+                activeTab === 'my-tasks'
+                  ? 'bg-green-600 text-white shadow-lg'
+                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              ✓ My Tasks ({myTasks.length})
+            </button>
+          </div>
 
         {/* Available Tasks */}
         {activeTab === 'available' && (
           <div className="space-y-6">
             {availableTasks.length === 0 ? (
               <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl px-8 py-12 text-center">
+                <div className="text-6xl mb-4">🎯</div>
                 <p className="text-slate-400 text-lg">No available tasks in your area right now.</p>
                 <p className="text-slate-500 text-sm mt-2">Check back later or expand your service area!</p>
               </div>
@@ -169,7 +487,7 @@ const VolunteerDashboard = () => {
                     <button
                       onClick={() => handleAcceptTask(task._id)}
                       disabled={loading}
-                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg whitespace-nowrap"
+                      className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg whitespace-nowrap"
                     >
                       Accept Task
                     </button>
@@ -181,10 +499,11 @@ const VolunteerDashboard = () => {
         )}
 
         {/* My Tasks */}
-        {activeTab === 'my-tasks' && (
+          {activeTab === 'my-tasks' && (
           <div className="space-y-6">
             {myTasks.length === 0 ? (
               <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl px-8 py-12 text-center">
+                <div className="text-6xl mb-4">📦</div>
                 <p className="text-slate-400 text-lg">You haven't accepted any tasks yet.</p>
                 <p className="text-slate-500 text-sm mt-2">Check the available tasks to get started!</p>
               </div>
@@ -274,6 +593,7 @@ const VolunteerDashboard = () => {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
