@@ -1,6 +1,6 @@
-import { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { useContext } from "react";
+import { Navigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -19,11 +19,13 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect to appropriate dashboard
-    if (user.role === 'donor') {
+    if (user.role === "donor") {
       return <Navigate to="/donor/dashboard" />;
-    } else if (user.role === 'volunteer') {
+    } else if (user.role === "volunteer") {
       return <Navigate to="/volunteer/dashboard" />;
-    } else if (user.role === 'admin') {
+    } else if (user.role === "organization") {
+      return <Navigate to="/organization/dashboard" />;
+    } else if (user.role === "admin") {
       return <Navigate to="/admin/dashboard" />;
     }
     return <Navigate to="/login" />;

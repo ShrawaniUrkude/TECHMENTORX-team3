@@ -1,29 +1,11 @@
 {
-  "name": "social-mentor-frontend",
-  "private": true,
+  "name": "social-mentor",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Social Mentor Platform - Donation and Volunteer Management",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "axios": "^1.6.2",
-    "leaflet": "^1.9.4",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-hot-toast": "^2.6.0",
-    "react-leaflet": "^4.2.1",
-    "react-router-dom": "^6.20.0"
-  },
-  "devDependencies": {
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6",
-    "vite": "^5.0.8"
+    "frontend": "cd frontend && npm run dev",
+    "backend": "cd backend && npm run dev",
+    "install:all": "cd frontend && npm install && cd ../backend && npm install",
+    "dev": "echo Run 'npm run frontend' and 'npm run backend' in separate terminals"
   }
 }
