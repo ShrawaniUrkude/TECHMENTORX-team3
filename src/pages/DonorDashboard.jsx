@@ -15,11 +15,45 @@ const volunteerIcon = L.icon({
   shadowSize: [41, 41]
 });
 
+const categories = [
+  { id: 'food', name: 'Food', icon: '🍞', color: 'from-orange-500 to-red-500', urgent: true },
+  { id: 'clothes', name: 'Clothes', icon: '👕', color: 'from-blue-500 to-indigo-500', urgent: false },
+  { id: 'books', name: 'Books', icon: '📚', color: 'from-green-500 to-teal-500', urgent: false },
+  { id: 'electronics', name: 'Electronics', icon: '💻', color: 'from-purple-500 to-pink-500', urgent: false },
+  { id: 'furniture', name: 'Furniture', icon: '🛋️', color: 'from-yellow-500 to-orange-500', urgent: false },
+  { id: 'medical', name: 'Medical', icon: '💊', color: 'from-red-500 to-pink-500', urgent: true },
+  { id: 'toys', name: 'Toys', icon: '🧸', color: 'from-pink-500 to-purple-500', urgent: false },
+  { id: 'other', name: 'Other', icon: '📦', color: 'from-slate-500 to-slate-600', urgent: false }
+];
+
+const impactBadges = [
+  { id: 1, name: 'First Step', icon: '🌱', desc: 'Made your first donation', threshold: 1, color: 'text-green-400' },
+  { id: 2, name: 'Generous Heart', icon: '💚', desc: '5 donations completed', threshold: 5, color: 'text-emerald-400' },
+  { id: 3, name: 'Community Hero', icon: '⭐', desc: '10 donations completed', threshold: 10, color: 'text-yellow-400' },
+  { id: 4, name: 'Champion', icon: '🏆', desc: '25 donations completed', threshold: 25, color: 'text-orange-400' },
+  { id: 5, name: 'Legend', icon: '👑', desc: '50+ donations completed', threshold: 50, color: 'text-purple-400' }
+];
+
+const urgentNeeds = [
+  { id: 1, category: 'food', need: 'Fresh Vegetables', location: 'Andheri West', urgency: 'Critical', time: '2h ago' },
+  { id: 2, category: 'medical', need: 'First Aid Supplies', location: 'Bandra', urgency: 'High', time: '4h ago' },
+  { id: 3, category: 'clothes', need: 'Winter Clothes', location: 'Kurla', urgency: 'Medium', time: '6h ago' }
+];
+
+const thankYouNotes = [
+  { id: 1, from: 'Hope Foundation', message: 'Your food donation fed 50 families. Thank you!', date: '2 days ago', avatar: '🏠' },
+  { id: 2, from: 'Care NGO', message: 'The books you donated are now in our library. Amazing!', date: '5 days ago', avatar: '📖' },
+  { id: 3, from: 'Smile Trust', message: 'Your clothes brought warmth to many children. Grateful!', date: '1 week ago', avatar: '💝' }
+];
+
 const DonorDashboard = () => {
   const [donations, setDonations] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [showMap, setShowMap] = useState(false);
+  const [mapCenter, setMapCenter] = useState([19.0760, 72.8777]); // Mumbai default
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -42,8 +76,32 @@ const DonorDashboard = () => {
       setDonations(response.data);
     } catch (error) {
       console.error('Failed to fetch donations:', error);
+      // Demo data for hackathon
+      setDonations([
+        {
+          _id: '1',
+          title: 'Rice Bags',
+          description: '25kg rice bags for distribution',
+          category: 'food',
+          quantity: '25 kg',
+          pickupAddress: '123 Main St',
+          city: 'Mumbai',
+          pincode: '400001',
+          status: 'DELIVERED'
+        }
+      ]);
     }
   };
+
+  const handleCategoryClick = (category) => {
+    setSelectedCategory(category.id);
+    setFormData({ ...formData, category: category.id, title: `${category.name} Donation` });
+    setShowForm(true);
+    toast.success(`Selected: ${category.name}`);
+  };
+
+  const earnedBadges = impactBadges.filter(badge => donations.length >= badge.threshold);
+  const nextBadge = impactBadges.find(badge => donations.length < badge.threshold);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -110,167 +168,338 @@ const DonorDashboard = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent mb-2">
             Donor Dashboard
           </h1>
-          <p className="text-slate-400">Create and track your donations</p>
+          <p className="text-slate-400">Make an impact with every donation</p>
         </div>
 
-        {/* Create Donation Button */}
-        <div className="mb-8">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg font-semibold transition transform hover:scale-105 shadow-lg"
-          >
-            {showForm ? '✕ Cancel' : '+ Create Donation'}
-          </button>
-        </div>
-
-        {/* Donation Form */}
-        {showForm && (
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl shadow-2xl p-8 mb-8">
-            <h2 className="text-2xl font-bold text-white mb-6">New Donation</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Title</label>
-                  <input
-                    type="text"
-                    name="title"
-                    required
-                    placeholder="e.g., Rice Bags"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                    value={formData.title}
-                    onChange={handleChange}
-                  />
+        {/* Impact Badges Section */}
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6 mb-8">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <span className="text-2xl">🏆</span> Your Impact Badges
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+            {impactBadges.map(badge => {
+              const isEarned = donations.length >= badge.threshold;
+              return (
+                <div key={badge.id} className={`text-center p-4 rounded-xl border-2 transition ${
+                  isEarned 
+                    ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-500/50' 
+                    : 'bg-slate-700/30 border-slate-600 opacity-50'
+                }`}>
+                  <div className={`text-4xl mb-2 ${isEarned ? 'animate-bounce' : 'grayscale'}`}>{badge.icon}</div>
+                  <p className={`text-sm font-bold ${isEarned ? badge.color : 'text-slate-400'}`}>{badge.name}</p>
+                  <p className="text-xs text-slate-400 mt-1">{badge.desc}</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
-                  <select
-                    name="category"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                    value={formData.category}
-                    onChange={handleChange}
-                  >
-                    <option value="food">🍞 Food</option>
-                    <option value="clothes">👕 Clothes</option>
-                    <option value="books">📚 Books</option>
-                    <option value="electronics">💻 Electronics</option>
-                    <option value="furniture">🛋️ Furniture</option>
-                    <option value="other">📦 Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
-                <textarea
-                  name="description"
-                  required
-                  rows="3"
-                  placeholder="Describe your donation in detail..."
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition resize-none"
-                  value={formData.description}
-                  onChange={handleChange}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Quantity</label>
-                  <input
-                    type="text"
-                    name="quantity"
-                    required
-                    placeholder="e.g., 10 kg"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                    value={formData.quantity}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Pickup Address</label>
-                  <input
-                    type="text"
-                    name="pickupAddress"
-                    required
-                    placeholder="Full address"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                    value={formData.pickupAddress}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">City</label>
-                  <input
-                    type="text"
-                    name="city"
-                    required
-                    placeholder="City"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                    value={formData.city}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Pincode</label>
-                  <input
-                    type="text"
-                    name="pincode"
-                    required
-                    placeholder="Pincode"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
-                    value={formData.pincode}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGetLocation}
-                disabled={gettingLocation}
-                className="w-full flex justify-center items-center py-3 px-4 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {gettingLocation ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Detecting Location...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    📍 Use My Current Location
-                  </>
-                )}
-              </button>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-              >
-                {loading ? 'Creating...' : 'Create Donation'}
-              </button>
-            </form>
+              );
+            })}
           </div>
-        )}
+          {nextBadge && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-center">
+              <p className="text-blue-300 text-sm">
+                <span className="font-bold">{nextBadge.threshold - donations.length} more donation(s)</span> to unlock <span className="font-bold">{nextBadge.name}</span> {nextBadge.icon}
+              </p>
+            </div>
+          )}
+        </div>
 
-        {/* Donations List */}
+        <div className="grid lg:grid-cols-3 gap-8 mb-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Category Icons Section */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">📦</span> What are you giving today?
+              </h2>
+              <div className="grid grid-cols-4 gap-3">
+                {categories.map(category => (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategoryClick(category)}
+                    className={`relative p-4 rounded-xl border-2 transition transform hover:scale-105 ${
+                      selectedCategory === category.id
+                        ? 'bg-gradient-to-br ' + category.color + ' border-white shadow-lg'
+                        : 'bg-slate-700/50 border-slate-600 hover:border-green-500/50'
+                    }`}
+                  >
+                    {category.urgent && (
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                      </span>
+                    )}
+                    <div className="text-4xl mb-2">{category.icon}</div>
+                    <p className="text-white text-xs font-semibold">{category.name}</p>
+                  </button>
+                ))}
+              </div>
+              <p className="text-slate-400 text-xs mt-4 text-center">⚠️ Red dot = Urgent need in your area</p>
+            </div>
+
+            {/* Urgent Needs Feed */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">🚨</span> Urgent Needs Near You
+              </h2>
+              <div className="space-y-3">
+                {urgentNeeds.map(need => (
+                  <div key={need.id} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 hover:border-red-500/50 transition">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${
+                            need.urgency === 'Critical' ? 'bg-red-500 text-white' :
+                            need.urgency === 'High' ? 'bg-orange-500 text-white' :
+                            'bg-yellow-500 text-black'
+                          }`}>{need.urgency}</span>
+                          <span className="text-white font-semibold">{need.need}</span>
+                        </div>
+                        <p className="text-slate-400 text-sm">📍 {need.location} • {need.time}</p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const cat = categories.find(c => c.id === need.category);
+                          if (cat) handleCategoryClick(cat);
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-bold rounded-lg hover:from-green-600 hover:to-emerald-700 transition"
+                      >
+                        Donate
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Donation Form */}
+            {showForm && (
+              <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl shadow-2xl p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-white">New Donation</h2>
+                  <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white">✕</button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Title</label>
+                      <input
+                        type="text"
+                        name="title"
+                        required
+                        placeholder="e.g., Rice Bags"
+                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition"
+                        value={formData.title}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
+                      <select
+                        name="category"
+                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition"
+                        value={formData.category}
+                        onChange={handleChange}
+                      >
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                    <textarea
+                      name="description"
+                      required
+                      rows="3"
+                      placeholder="Describe your donation in detail..."
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition resize-none"
+                      value={formData.description}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Quantity</label>
+                      <input
+                        type="text"
+                        name="quantity"
+                        required
+                        placeholder="e.g., 10 kg"
+                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition"
+                        value={formData.quantity}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Pickup Address</label>
+                      <input
+                        type="text"
+                        name="pickupAddress"
+                        required
+                        placeholder="Full address"
+                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition"
+                        value={formData.pickupAddress}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">City</label>
+                      <input
+                        type="text"
+                        name="city"
+                        required
+                        placeholder="City"
+                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition"
+                        value={formData.city}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Pincode</label>
+                      <input
+                        type="text"
+                        name="pincode"
+                        required
+                        placeholder="Pincode"
+                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-lg placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition"
+                        value={formData.pincode}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Map Picker */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowMap(!showMap)}
+                      className="w-full flex justify-center items-center py-3 px-4 border border-green-500/50 text-green-400 hover:bg-green-500/10 font-medium rounded-lg transition"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                      {showMap ? 'Hide Map' : '🗺️ Pick Location on Map'}
+                    </button>
+                    {showMap && (
+                      <div className="mt-4 rounded-xl overflow-hidden border-2 border-green-500/50">
+                        <MapContainer
+                          center={mapCenter}
+                          zoom={13}
+                          scrollWheelZoom={true}
+                          style={{ height: '300px', width: '100%' }}
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution="&copy; OpenStreetMap contributors"
+                          />
+                          <Marker position={mapCenter} icon={volunteerIcon}>
+                            <Popup>Your pickup location</Popup>
+                          </Marker>
+                        </MapContainer>
+                        <p className="text-xs text-slate-400 mt-2 text-center">Click on map to set pickup location</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGetLocation}
+                    disabled={gettingLocation}
+                    className="w-full flex justify-center items-center py-3 px-4 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {gettingLocation ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Detecting Location...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        📍 Use My Current Location
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                  >
+                    {loading ? 'Creating...' : '✨ Create Donation'}
+                  </button>
+                </form>
+              </div>
+            )}
+
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Thank You Wall */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">💝</span> Thank You Wall
+              </h2>
+              <div className="space-y-4">
+                {thankYouNotes.map(note => (
+                  <div key={note.id} className="bg-gradient-to-br from-pink-500/10 to-purple-500/10 border border-pink-500/30 rounded-xl p-4 hover:border-pink-500/50 transition">
+                    <div className="flex items-start gap-3">
+                      <div className="text-3xl">{note.avatar}</div>
+                      <div className="flex-1">
+                        <p className="text-white font-semibold text-sm mb-1">{note.from}</p>
+                        <p className="text-slate-300 text-sm mb-2">"{note.message}"</p>
+                        <p className="text-slate-500 text-xs">{note.date}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="w-full mt-4 py-2 text-sm text-green-400 hover:text-green-300 font-medium transition">
+                View all messages →
+              </button>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4">Your Impact</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Total Donations</span>
+                  <span className="text-2xl font-bold text-green-400">{donations.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Families Helped</span>
+                  <span className="text-2xl font-bold text-blue-400">{donations.length * 12}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Impact Score</span>
+                  <span className="text-2xl font-bold text-purple-400">{donations.length * 150}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Donations History */}
         <div>
-          <h2 className="text-2xl font-bold text-white mb-6">My Donations</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">My Donations History</h2>
           {donations.length === 0 ? (
             <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-12 text-center">
-              <p className="text-slate-400 text-lg">No donations yet. Create your first donation!</p>
+              <div className="text-6xl mb-4">📦</div>
+              <p className="text-slate-400 text-lg mb-4">No donations yet</p>
+              <p className="text-slate-500 text-sm">Click on a category above to start your first donation!</p>
             </div>
           ) : (
             <div className="grid gap-6">
